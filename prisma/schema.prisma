@@ -1,0 +1,105 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 用户 ─────────────────────────────────────────────────
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  plan         Plan      @default(FREE)
+  dailyCount   Int       @default(0)       // 今日已用次数（原子更新）
+  dailyResetAt DateTime  @default(now())   // 上次重置时间，用于判断是否跨日
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions  Session[]
+  threads   Thread[]
+  payments  Payment[]
+
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+// ─── JWT 黑名单（登出用）────────────────────────────────────
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ─── 对话线程（一次多轮对话为一个 Thread）──────────────────
+model Thread {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String    @default("新对话")
+  agents    String[]  // 存储选中的 agentId 数组，如 ["deepseek","kimi"]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns    Turn[]
+
+  @@map("threads")
+}
+
+// ─── 对话轮次（一问多答为一个 Turn）────────────────────────
+model Turn {
+  id        String   @id @default(cuid())
+  threadId  String
+  role      Role
+  content   String   @db.Text           // 用户消息 或 某个 AI 的回复
+  agentId   String?                     // role=ASSISTANT 时为 AI 标识
+  isError   Boolean  @default(false)    // 该 AI 本轮是否报错
+  createdAt DateTime @default(now())
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("turns")
+}
+
+enum Role {
+  USER
+  ASSISTANT
+}
+
+// ─── 支付记录 ─────────────────────────────────────────────
+model Payment {
+  id        String        @id @default(cuid())
+  userId    String
+  orderId   String        @unique          // 虎皮椒订单号
+  amount    Int                            // 单位：分
+  status    PaymentStatus @default(PENDING)
+  plan      Plan                           // 购买的套餐
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}

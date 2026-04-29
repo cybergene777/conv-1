@@ -1,0 +1,107 @@
+/* src/app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS 变量：亮色 / 暗色主题 ────────────────────────── */
+@layer base {
+  :root {
+    --bg-primary:     #ffffff;
+    --bg-secondary:   #f7f7f8;
+    --bg-sidebar:     #f0f0f1;
+    --bg-hover:       #e8e8ea;
+
+    --text-primary:   #1a1a1a;
+    --text-secondary: #6b7280;
+    --text-muted:     #9ca3af;
+
+    --border:         #e5e7eb;
+    --border-hover:   #d1d5db;
+
+    --accent:         #4D6BFE;
+    --accent-hover:   #3a56e0;
+
+    --bubble-user-bg: #4D6BFE;
+    --bubble-user-fg: #ffffff;
+
+    --input-bg:       #f9fafb;
+    --input-border:   #e5e7eb;
+
+    --radius-sm:      6px;
+    --radius-md:      12px;
+    --radius-lg:      18px;
+    --radius-xl:      24px;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  }
+
+  .dark {
+    --bg-primary:     #1a1a1a;
+    --bg-secondary:   #242424;
+    --bg-sidebar:     #1e1e1e;
+    --bg-hover:       #2a2a2a;
+
+    --text-primary:   #f0f0f0;
+    --text-secondary: #9ca3af;
+    --text-muted:     #6b7280;
+
+    --border:         #2e2e2e;
+    --border-hover:   #3a3a3a;
+
+    --input-bg:       #242424;
+    --input-border:   #333333;
+  }
+}
+
+/* ─── 全局基础样式 ─────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+}
+
+/* ─── 工具类扩展 ───────────────────────────────────────── */
+@layer utilities {
+  .typing-cursor::after {
+    content: "▋";
+    animation: blink 1s step-end infinite;
+    color: var(--text-muted);
+    margin-left: 1px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+
+  .prose-chat { line-height: 1.65; font-size: 0.9375rem; }
+  .prose-chat p        { margin: 0.5em 0; }
+  .prose-chat pre      { background: var(--bg-secondary); border-radius: var(--radius-sm); padding: 0.75rem 1rem; overflow-x: auto; font-size: 0.85em; }
+  .prose-chat code     { background: var(--bg-secondary); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.875em; }
+  .prose-chat pre code { background: transparent; padding: 0; }
+  .prose-chat ul, .prose-chat ol { padding-left: 1.5em; margin: 0.5em 0; }
+  .prose-chat li       { margin: 0.25em 0; }
+  .prose-chat blockquote { border-left: 3px solid var(--border); padding-left: 1em; color: var(--text-secondary); margin: 0.5em 0; }
+  .prose-chat h1,.prose-chat h2,.prose-chat h3 { font-weight: 600; margin: 0.75em 0 0.4em; }
+  .prose-chat table  { border-collapse: collapse; width: 100%; font-size: 0.875em; }
+  .prose-chat th, .prose-chat td { border: 1px solid var(--border); padding: 0.4em 0.75em; }
+  .prose-chat th { background: var(--bg-secondary); }
+}
