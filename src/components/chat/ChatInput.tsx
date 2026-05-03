@@ -1,5 +1,4 @@
 // src/components/chat/ChatInput.tsx
-// 输入框：支持 Enter 发送、Shift+Enter 换行、自适应高度
 "use client";
 
 import { useRef, useEffect, KeyboardEvent } from "react";
@@ -13,15 +12,11 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({
-  value,
-  onChange,
-  onSend,
-  disabled = false,
+  value, onChange, onSend, disabled = false,
   placeholder = "输入消息… (Enter 发送，Shift+Enter 换行)",
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 自适应高度
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -39,15 +34,12 @@ export default function ChatInput({
   const canSend = !disabled && value.trim().length > 0;
 
   return (
-    <div
-      className="flex items-end gap-2 rounded-2xl px-4 py-3 transition-all"
+    <div className="flex items-end gap-3 rounded-xl px-4 py-3 transition-all"
       style={{
         background: "var(--input-bg)",
-        border: "1.5px solid var(--input-border)",
+        border: "1px solid var(--border)",
         boxShadow: "var(--shadow-sm)",
-      }}
-      onFocus={() => {}}
-    >
+      }}>
       <textarea
         ref={textareaRef}
         value={value}
@@ -56,7 +48,7 @@ export default function ChatInput({
         disabled={disabled}
         placeholder={placeholder}
         rows={1}
-        className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed"
+        className="flex-1 resize-none bg-transparent outline-none text-sm leading-relaxed placeholder:text-sm"
         style={{
           color: "var(--text-primary)",
           maxHeight: 160,
@@ -64,37 +56,24 @@ export default function ChatInput({
         }}
       />
 
-      {/* 发送按钮 */}
-      <button
-        onClick={onSend}
-        disabled={!canSend}
-        className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-sm transition-all mb-0.5"
+      <button onClick={onSend} disabled={!canSend}
+        className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all mb-0.5"
         style={{
-          background: canSend ? "var(--accent)" : "var(--border)",
-          color: canSend ? "#fff" : "var(--text-muted)",
+          background: canSend ? "var(--text-primary)" : "var(--bg-hover)",
+          color: canSend ? "var(--bg-primary)" : "var(--text-muted)",
           cursor: canSend ? "pointer" : "not-allowed",
-          transform: canSend ? "scale(1)" : "scale(0.92)",
         }}
-        title="发送 (Enter)"
-      >
+        title="发送 (Enter)">
         {disabled ? (
-          // 加载动画
           <span className="flex gap-0.5">
             {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="w-1 h-1 rounded-full animate-pulse-dot"
-                style={{
-                  background: "var(--text-muted)",
-                  animationDelay: `${i * 0.16}s`,
-                }}
-              />
+              <span key={i} className="w-1 h-1 rounded-full animate-pulse-dot"
+                style={{ background: "var(--text-muted)", animationDelay: `${i * 0.15}s` }} />
             ))}
           </span>
         ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
           </svg>
         )}
       </button>

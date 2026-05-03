@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 关闭严格模式避免开发环境双重渲染
   reactStrictMode: false,
-  // 流式响应需要关闭静态优化
+  
+  // ✅ 正确：serverExternalPackages 已经移出 experimental，放在这里
+  serverExternalPackages: ["@prisma/client"],
+
   experimental: {
-    serverComponentsExternalPackages: ["@prisma/client"],
+    // 如果没有其他实验性功能，这里可以留空或删除
   },
 };
 

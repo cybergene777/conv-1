@@ -1,68 +1,88 @@
 /* src/app/globals.css */
 
+/* KaTeX 公式样式（@import 必须在所有规则之前） */
+@import "katex/dist/katex.min.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CSS 变量：亮色 / 暗色主题 ────────────────────────── */
+/* === CSS variables: light / dark theme === */
 @layer base {
   :root {
-    --bg-primary:     #ffffff;
-    --bg-secondary:   #f7f7f8;
-    --bg-sidebar:     #f0f0f1;
-    --bg-hover:       #e8e8ea;
+    --bg-primary:     #fafaf9;
+    --bg-secondary:   #f4f3f0;
+    --bg-sidebar:     #efeeeb;
+    --bg-hover:       #e8e7e3;
+    --bg-card:        #ffffff;
 
-    --text-primary:   #1a1a1a;
-    --text-secondary: #6b7280;
-    --text-muted:     #9ca3af;
+    --text-primary:   #1c1917;
+    --text-secondary: #57534e;
+    --text-muted:     #a8a29e;
 
-    --border:         #e5e7eb;
-    --border-hover:   #d1d5db;
+    --border:         #e7e5e4;
+    --border-hover:   #d6d3d1;
 
-    --accent:         #4D6BFE;
-    --accent-hover:   #3a56e0;
+    --accent:         #d97706;
+    --accent-hover:   #b45309;
+    --accent-subtle:  #fef3c7;
 
-    --bubble-user-bg: #4D6BFE;
-    --bubble-user-fg: #ffffff;
+    --bubble-user-bg: #1c1917;
+    --bubble-user-fg: #fafaf9;
 
-    --input-bg:       #f9fafb;
-    --input-border:   #e5e7eb;
+    --input-bg:       #ffffff;
+    --input-border:   #e7e5e4;
 
     --radius-sm:      6px;
-    --radius-md:      12px;
-    --radius-lg:      18px;
-    --radius-xl:      24px;
+    --radius-md:      10px;
+    --radius-lg:      16px;
+    --radius-xl:      22px;
 
-    --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-    --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.08), 0 2px 8px rgba(0,0,0,.04);
   }
 
   .dark {
-    --bg-primary:     #1a1a1a;
-    --bg-secondary:   #242424;
-    --bg-sidebar:     #1e1e1e;
-    --bg-hover:       #2a2a2a;
+    --bg-primary:     #141413;
+    --bg-secondary:   #1c1b1a;
+    --bg-sidebar:     #181716;
+    --bg-hover:       #242320;
+    --bg-card:        #1e1d1c;
 
-    --text-primary:   #f0f0f0;
-    --text-secondary: #9ca3af;
-    --text-muted:     #6b7280;
+    --text-primary:   #fafaf9;
+    --text-secondary: #a8a29e;
+    --text-muted:     #57534e;
 
-    --border:         #2e2e2e;
-    --border-hover:   #3a3a3a;
+    --border:         #2c2b29;
+    --border-hover:   #3c3b38;
 
-    --input-bg:       #242424;
-    --input-border:   #333333;
+    --accent:         #f59e0b;
+    --accent-hover:   #fbbf24;
+    --accent-subtle:  #292118;
+
+    --bubble-user-bg: #292118;
+    --bubble-user-fg: #fef3c7;
+
+    --input-bg:       #1c1b1a;
+    --input-border:   #2c2b29;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.3);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.4);
   }
 }
 
-/* ─── 全局基础样式 ─────────────────────────────────────── */
+/* === Global base styles === */
 @layer base {
   * { box-sizing: border-box; }
 
   html {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
   }
 
   body {
@@ -72,19 +92,24 @@
     min-height: 100vh;
   }
 
-  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  code, pre {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+  }
+
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track  { background: transparent; }
   ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 99px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 }
 
-/* ─── 工具类扩展 ───────────────────────────────────────── */
+/* === Utility extensions === */
 @layer utilities {
   .typing-cursor::after {
     content: "▋";
     animation: blink 1s step-end infinite;
-    color: var(--text-muted);
+    color: var(--accent);
     margin-left: 1px;
+    font-size: 0.85em;
   }
 
   @keyframes blink {
@@ -92,16 +117,73 @@
     50%       { opacity: 0; }
   }
 
-  .prose-chat { line-height: 1.65; font-size: 0.9375rem; }
-  .prose-chat p        { margin: 0.5em 0; }
-  .prose-chat pre      { background: var(--bg-secondary); border-radius: var(--radius-sm); padding: 0.75rem 1rem; overflow-x: auto; font-size: 0.85em; }
-  .prose-chat code     { background: var(--bg-secondary); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.875em; }
-  .prose-chat pre code { background: transparent; padding: 0; }
-  .prose-chat ul, .prose-chat ol { padding-left: 1.5em; margin: 0.5em 0; }
-  .prose-chat li       { margin: 0.25em 0; }
-  .prose-chat blockquote { border-left: 3px solid var(--border); padding-left: 1em; color: var(--text-secondary); margin: 0.5em 0; }
-  .prose-chat h1,.prose-chat h2,.prose-chat h3 { font-weight: 600; margin: 0.75em 0 0.4em; }
-  .prose-chat table  { border-collapse: collapse; width: 100%; font-size: 0.875em; }
-  .prose-chat th, .prose-chat td { border: 1px solid var(--border); padding: 0.4em 0.75em; }
-  .prose-chat th { background: var(--bg-secondary); }
+  @keyframes pulse-dot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40%           { transform: scale(1);   opacity: 1;   }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .animate-pulse-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+  .animate-fade-in   { animation: fade-in 0.25s ease-out both; }
+  .animate-slide-in  { animation: slide-in 0.2s ease-out both; }
+
+  .prose-chat { line-height: 1.7; font-size: 0.9375rem; }
+  .prose-chat p        { margin: 0.6em 0; }
+  .prose-chat pre      {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.875rem 1rem;
+    overflow-x: auto;
+    font-size: 0.825em;
+    margin: 0.75em 0;
+  }
+  .prose-chat code     {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-size: 0.85em;
+  }
+  .prose-chat pre code { background: transparent; border: none; padding: 0; }
+  .prose-chat ul, .prose-chat ol { padding-left: 1.4em; margin: 0.5em 0; }
+  .prose-chat li       { margin: 0.3em 0; }
+  .prose-chat blockquote {
+    border-left: 2px solid var(--accent);
+    padding-left: 1em;
+    color: var(--text-secondary);
+    margin: 0.75em 0;
+    font-style: italic;
+  }
+  .prose-chat h1,.prose-chat h2,.prose-chat h3 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 1em 0 0.4em;
+    color: var(--text-primary);
+  }
+  .prose-chat h1 { font-size: 1.2em; }
+  .prose-chat h2 { font-size: 1.1em; }
+  .prose-chat h3 { font-size: 1em; }
+  .prose-chat table  { border-collapse: collapse; width: 100%; font-size: 0.875em; margin: 0.75em 0; }
+  .prose-chat th, .prose-chat td { border: 1px solid var(--border); padding: 0.45em 0.8em; text-align: left; }
+  .prose-chat th { background: var(--bg-secondary); font-weight: 500; }
+  .prose-chat strong { font-weight: 600; color: var(--text-primary); }
+  .prose-chat a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .prose-chat a:hover { opacity: 0.8; }
+  .prose-chat del { opacity: 0.5; }
+  .prose-chat hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+  .prose-chat input[type="checkbox"] { margin-right: 0.4em; accent-color: var(--accent); }
+  /* KaTeX 公式布局 */
+  .prose-chat .math-block  { overflow-x: auto; padding: 0.5em 0; text-align: center; }
+  .prose-chat .math-inline { vertical-align: middle; }
+  .prose-chat .math-error  { color: #ef4444; font-size: 0.8em; font-family: monospace; }
 }

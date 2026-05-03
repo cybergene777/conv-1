@@ -23,10 +23,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (!data.success) {
-        setError(data.error ?? "登录失败");
-        return;
-      }
+      if (!data.success) { setError(data.error ?? "登录失败"); return; }
       document.cookie = `token=${data.data.token}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
       router.push("/chat");
     } catch {
@@ -37,106 +34,87 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: "var(--bg-secondary)" }}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl p-8"
-        style={{
-          background: "var(--bg-primary)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-md)",
-        }}
-      >
+    <div className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: "var(--bg-primary)" }}>
+
+      {/* 背景装饰 */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full opacity-5"
+          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }} />
+      </div>
+
+      <div className="w-full max-w-sm relative">
         {/* Logo */}
-        <div className="mb-8 text-center">
-          <div
-            className="inline-flex items-center gap-2 text-xl font-semibold"
-            style={{ color: "var(--accent)" }}
-          >
-            <span className="text-2xl">⟨/⟩</span>
-            <span>Conv:1</span>
-          </div>
-          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            登录以继续使用多 AI 对比
+        <div className="text-center mb-10">
+          <Link href="/" className="inline-flex items-center gap-2 font-semibold tracking-tight"
+            style={{ color: "var(--text-primary)" }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
+              style={{ background: "var(--accent)", color: "#fff" }}>C1</div>
+            Conv:1
+          </Link>
+          <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
+            登录以继续
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              className="block text-sm font-medium mb-1.5"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              邮箱
-            </label>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
+        <div className="rounded-2xl p-8"
+          style={{ background: "var(--bg-card)", border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                邮箱
+              </label>
+              <input
+                type="email" required autoComplete="email"
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--input-border)"}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                密码
+              </label>
+              <input
+                type="password" required autoComplete="current-password"
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-all"
+                style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
+                onBlur={(e) => e.currentTarget.style.borderColor = "var(--input-border)"}
+              />
+            </div>
+
+            {error && (
+              <p className="text-xs px-3 py-2.5 rounded-lg"
+                style={{ background: "#fee2e222", border: "1px solid #fca5a555", color: "#ef4444" }}>
+                {error}
+              </p>
+            )}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-2.5 rounded-xl text-sm font-medium transition-all mt-1"
               style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--input-border)")}
-            />
-          </div>
+                background: loading ? "var(--bg-hover)" : "var(--text-primary)",
+                color: loading ? "var(--text-muted)" : "var(--bg-primary)",
+                cursor: loading ? "not-allowed" : "pointer",
+              }}>
+              {loading ? "登录中…" : "登录"}
+            </button>
+          </form>
+        </div>
 
-          <div>
-            <label
-              className="block text-sm font-medium mb-1.5"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              密码
-            </label>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
-                color: "var(--text-primary)",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--input-border)")}
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm px-3 py-2 rounded-lg" style={{ background: "#fee2e2", color: "#dc2626" }}>
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 rounded-xl text-sm font-medium transition-all mt-2"
-            style={{
-              background: loading ? "var(--border)" : "var(--accent)",
-              color: loading ? "var(--text-muted)" : "#fff",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "登录中…" : "登录"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+        <p className="mt-6 text-center text-xs" style={{ color: "var(--text-muted)" }}>
           还没有账号？{" "}
-          <Link href="/register" style={{ color: "var(--accent)" }} className="font-medium">
+          <Link href="/register" className="font-medium transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={(e: any) => e.currentTarget.style.color = "var(--text-primary)"}
+            onMouseLeave={(e: any) => e.currentTarget.style.color = "var(--text-secondary)"}>
             立即注册
           </Link>
         </p>

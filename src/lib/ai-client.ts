@@ -1,5 +1,5 @@
 // src/lib/ai-client.ts
-// 统一 AI 调用层：所有模型走 OpenAI 兼容接口，只换 baseURL + apiKey
+// 统一 AI 调用层：使用回调模式避免双层 ReadableStream 的 backpressure 串行问题
 
 import { AIAgent } from "@/types/ai";
 
@@ -8,16 +8,19 @@ export interface AIMessage {
   content: string;
 }
 
-const AI_TIMEOUT_MS = 30_000; // 30 秒超时，防止某个模型挂死阻塞
+const AI_TIMEOUT_MS = 30_000;
 
 /**
- * 向单个 AI 发起流式请求，返回 ReadableStream<string>（chunk 文本）
- * 调用方负责消费流并处理错误
+ * 以回调方式流式读取单个 AI 的响应。
+ * 不再返回 ReadableStream，而是直接在内部消费 response.body，
+ * 并通过 onChunk / onDone 通知调用者，彻底消除中间层 backpressure。
  */
 export async function streamFromAgent(
   agent: AIAgent,
-  messages: AIMessage[]
-): Promise<ReadableStream<string>> {
+  messages: AIMessage[],
+  onChunk: (chunk: string) => void,
+  signal?: AbortSignal
+): Promise<string> {
   const apiKey = process.env[agent.apiKeyEnv];
   if (!apiKey) {
     throw new Error(`Missing API key for agent: ${agent.id} (env: ${agent.apiKeyEnv})`);
@@ -25,6 +28,8 @@ export async function streamFromAgent(
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  // 如果外部传入 signal，联动取消
+  signal?.addEventListener("abort", () => controller.abort());
 
   const response = await fetch(`${agent.baseURL}/chat/completions`, {
     method: "POST",
@@ -45,40 +50,46 @@ export async function streamFromAgent(
   clearTimeout(timer);
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`${agent.id} API error ${response.status}: ${err}`);
+    const errText = await response.text();
+    throw new Error(`${agent.id} API error ${response.status}: ${errText}`);
   }
 
-  // 将 SSE 原始流转换为文本 chunk 流
-  return new ReadableStream<string>({
-    async start(streamController) {
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let leftover = "";
+  let fullContent = "";
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-          const lines = decoder.decode(value, { stream: true }).split("\n");
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6).trim();
-            if (data === "[DONE]") break;
+      const chunkStr = leftover + decoder.decode(value, { stream: true });
+      const lines = chunkStr.split("\n");
+      leftover = lines.pop() ?? "";
 
-            try {
-              const json = JSON.parse(data);
-              const chunk = json.choices?.[0]?.delta?.content;
-              if (chunk) streamController.enqueue(chunk);
-            } catch {
-              // 忽略无法解析的行
-            }
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+
+        const data = trimmedLine.slice(6).trim();
+        if (data === "[DONE]") break;
+
+        try {
+          const json = JSON.parse(data);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            fullContent += content;
+            onChunk(content);
           }
+        } catch (e) {
+          console.error(`JSON Parse Error from ${agent.id}:`, data);
         }
-      } finally {
-        streamController.close();
-        reader.releaseLock();
       }
-    },
-  });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return fullContent;
 }

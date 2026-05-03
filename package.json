@@ -14,14 +14,19 @@
   "dependencies": {
     "@prisma/client": "^5.14.0",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.2",
     "jose": "^5.4.1",
-    "next": "14.2.3",
+    "katex": "^0.16.45",
+    "marked": "^18.0.3",
+    "next": "^16.2.4",
     "react": "^18",
     "react-dom": "^18",
     "tailwind-merge": "^2.3.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/katex": "^0.16.8",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

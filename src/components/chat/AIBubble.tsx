@@ -1,8 +1,10 @@
 // src/components/chat/AIBubble.tsx
-// 单个 AI 的回复气泡：支持流式 markdown 渲染 + 打字光标 + 错误状态
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import katex from "katex";
 import { AGENT_MAP } from "@/lib/ai-agents";
 import { AgentId } from "@/types/ai";
 
@@ -11,55 +13,88 @@ interface AIBubbleProps {
   content: string;
   done: boolean;
   error?: string;
-  /** 是否来自历史记录（非流式，直接全量展示） */
   isHistory?: boolean;
+  onScrollToTop?: () => void;
 }
 
-/** 极简 markdown → HTML 转换（无外部依赖） */
+// 配置 marked：GFM + 换行即 <br>
+marked.setOptions({ gfm: true, breaks: true });
+
+/**
+ * 渲染流程：
+ * 1. 提取 LaTeX 公式替换为占位符（用不含特殊字符的格式避免 marked 误处理）
+ * 2. marked 解析剩余 Markdown → HTML
+ * 3. 把占位符替换回 KaTeX 渲染的 HTML
+ * 4. DOMPurify 过滤 XSS，同时放行 KaTeX 所需标签和属性
+ */
 function renderMarkdown(text: string): string {
-  return text
-    // 代码块
-    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-      `<pre><code class="language-${lang || "text"}">${escHtml(code.trim())}</code></pre>`
-    )
-    // 行内代码
-    .replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`)
-    // 加粗
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    // 斜体
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // 标题
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    // 无序列表
-    .replace(/^[*-] (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, "<ul>$1</ul>$2")
-    // 有序列表
-    .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
-    // 引用
-    .replace(/^> (.+)$/gm, "<blockquote>$1</blockquote>")
-    // 段落（两个换行）
-    .replace(/\n{2,}/g, "</p><p>")
-    // 单换行
-    .replace(/\n/g, "<br/>")
-    // 包裹段落
-    .replace(/^(?!<[hupbolir])(.+)/gm, (m) => (m.trim() ? m : ""))
-    ;
+  const placeholders: string[] = [];
+
+  // 占位符格式：纯字母数字，不含下划线，避免 marked 把 __ 当 <strong> 处理
+  const makePlaceholder = (i: number) => `XMATHX${i}XMATHX`;
+
+  // 先提取块级公式：$$...$$ 和 \[...\]
+  const withBlockMath = text
+    .replace(/\$\$([\s\S]+?)\$\$/g, (_, formula) => {
+      const idx = placeholders.length;
+      placeholders.push(
+        `<div class="math-block">${katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, output: "html" })}</div>`
+      );
+      return makePlaceholder(idx);
+    })
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_, formula) => {
+      const idx = placeholders.length;
+      placeholders.push(
+        `<div class="math-block">${katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, output: "html" })}</div>`
+      );
+      return makePlaceholder(idx);
+    });
+
+  // 再提取行内公式：$...$ 和 \(...\)
+  const withInlineMath = withBlockMath
+    .replace(/(?<!\d)\$([^\n$]+?)\$(?!\d)/g, (_, formula) => {
+      const idx = placeholders.length;
+      placeholders.push(
+        `<span class="math-inline">${katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, output: "html" })}</span>`
+      );
+      return makePlaceholder(idx);
+    })
+    .replace(/\\\(([^\n]+?)\\\)/g, (_, formula) => {
+      const idx = placeholders.length;
+      placeholders.push(
+        `<span class="math-inline">${katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, output: "html" })}</span>`
+      );
+      return makePlaceholder(idx);
+    });
+
+  // marked 解析 Markdown
+  let html = marked.parse(withInlineMath) as string;
+
+  // 还原占位符（marked 不会动纯字母数字字符串）
+  html = html.replace(/XMATHX(\d+)XMATHX/g, (_, idx) => placeholders[Number(idx)] ?? "");
+
+  // DOMPurify：ADD_TAGS 放行 KaTeX 用到的标签，ALLOWED_ATTR 放行必要属性
+  return DOMPurify.sanitize(html, {
+    ADD_TAGS: ["annotation", "semantics", "math", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "mroot", "msqrt", "mtext", "mspace"],
+    ALLOWED_ATTR: ["class", "style", "href", "target", "rel", "aria-hidden", "focusable", "role", "xmlns", "encoding"],
+    ADD_ATTR: ["target", "aria-hidden"],
+    FORCE_BODY: true,
+  });
 }
 
-function escHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+const AGENT_COLORS: Record<string, string> = {
+  deepseek: "#6366f1",
+  kimi:     "#ec4899",
+  qwen:     "#8b5cf6",
+  doubao:   "#06b6d4",
+  glm:      "#10b981",
+};
 
-export default function AIBubble({ agentId, content, done, error, isHistory = false }: AIBubbleProps) {
+export default function AIBubble({ agentId, content, done, error, isHistory = false, onScrollToTop }: AIBubbleProps) {
   const agent = AGENT_MAP.get(agentId);
+  const color = AGENT_COLORS[agentId] ?? agent?.color ?? "#ccc";
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 流式时自动滚动到最新内容
   useEffect(() => {
     if (!done && contentRef.current) {
       contentRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -68,62 +103,93 @@ export default function AIBubble({ agentId, content, done, error, isHistory = fa
 
   const isEmpty = !content && !error;
   const isStreaming = !done && !error && !isHistory;
+  const showScrollTop = done && !error && !!content && !!onScrollToTop;
+
+  // 用 useMemo 缓存渲染结果，content 不变则不重新解析
+  const htmlContent = useMemo(
+    () => (content ? renderMarkdown(content) : ""),
+    [content]
+  );
 
   return (
-    <div className="flex flex-col gap-2 min-w-0">
+    <div className="flex flex-col gap-2.5 min-w-0 animate-fade-in">
       {/* AI 标签头 */}
-      <div className="flex items-center gap-1.5">
-        {/* 颜色圆点 */}
-        <span
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: agent?.color ?? "#ccc" }}
-        />
-        <span
-          className="text-xs font-semibold"
-          style={{ color: agent?.color ?? "var(--text-muted)" }}
-        >
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0"
+          style={{ background: color + "20", color }}>
+          {(agent?.name ?? agentId)[0]}
+        </div>
+        <span className="text-xs font-semibold" style={{ color }}>
           {agent?.name ?? agentId}
         </span>
-        {/* 流式加载中的跳动点 */}
         {isEmpty && isStreaming && (
-          <span className="flex gap-0.5 ml-1">
+          <span className="flex gap-0.5 ml-0.5">
             {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="w-1.5 h-1.5 rounded-full animate-pulse-dot"
-                style={{
-                  background: agent?.color ?? "var(--text-muted)",
-                  animationDelay: `${i * 0.16}s`,
-                }}
-              />
+              <span key={i} className="w-1 h-1 rounded-full animate-pulse-dot"
+                style={{ background: color, animationDelay: `${i * 0.15}s` }} />
             ))}
+          </span>
+        )}
+        {done && !error && content && (
+          <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
           </span>
         )}
       </div>
 
-      {/* 气泡主体 */}
-      <div
-        className="rounded-2xl px-4 py-3 text-sm leading-relaxed min-h-[2.5rem]"
-        style={{
-          background: "var(--bg-secondary)",
-          border: error ? "1px solid #fca5a5" : "1px solid var(--border)",
-          color: error ? "#dc2626" : "var(--text-primary)",
-        }}
-      >
-        {error ? (
-          <p className="flex items-center gap-2">
-            <span>⚠</span>
-            <span>{error}</span>
-          </p>
-        ) : isEmpty ? (
-          // 占位空状态
-          <span style={{ color: "var(--text-muted)" }}>…</span>
-        ) : (
-          <div
-            ref={contentRef}
-            className={`prose-chat${isStreaming ? " typing-cursor" : ""}`}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-          />
+      {/* 气泡主体（relative 包裹，让选项卡按钮能绝对定位突出） */}
+      <div className="relative">
+        <div className="rounded-xl px-4 py-3 text-sm leading-relaxed min-h-[2.5rem] transition-all"
+          style={{
+            background: error ? "#fee2e215" : "var(--bg-secondary)",
+            border: `1px solid ${error ? "#fca5a540" : "var(--border)"}`,
+            color: error ? "#ef4444" : "var(--text-primary)",
+            // 有按钮时右下角不圆，与选项卡无缝拼接
+            borderBottomRightRadius: showScrollTop ? "0" : undefined,
+          }}>
+          {error ? (
+            <p className="flex items-center gap-2 text-xs">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {error}
+            </p>
+          ) : isEmpty ? (
+            <span style={{ color: "var(--text-muted)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline" }}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            </span>
+          ) : (
+            <div ref={contentRef}
+              className={`prose-chat${isStreaming ? " typing-cursor" : ""}`}
+              dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          )}
+        </div>
+
+        {/* 选项卡式回到提问按钮：从气泡右下角突出 */}
+        {showScrollTop && (
+          <button
+            onClick={onScrollToTop}
+            title="回到提问处"
+            className="absolute flex items-center gap-1 text-xs px-2.5 py-1 transition-all hover:opacity-80 active:scale-95"
+            style={{
+              right: 0,
+              top: "100%",
+              color: "var(--text-muted)",
+              background: "var(--bg-secondary)",
+              border: `1px solid var(--border)`,
+              borderTop: "none",
+              borderRadius: "0 0 8px 8px",
+            }}
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
+            回到提问
+          </button>
         )}
       </div>
     </div>

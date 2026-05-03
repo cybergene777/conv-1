@@ -1,23 +1,17 @@
 // src/app/api/chat/stream/route.ts
-// ⭐ 核心：多 AI 并发 SSE 推流
-
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AGENT_MAP, FREE_MAX_AGENTS } from "@/lib/ai-agents";
+import { AGENT_MAP } from "@/lib/ai-agents";
 import { streamFromAgent, AIMessage } from "@/lib/ai-client";
-import { err } from "@/lib/utils";
-import { truncate } from "@/lib/utils";
+import { err, truncate } from "@/lib/utils";
 import { AgentId } from "@/types/ai";
 
-export const runtime = "nodejs"; // Edge Runtime 不支持 Prisma
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  // ─── 1. 获取用户信息（由 middleware 注入）────────────────
   const userId = req.headers.get("x-user-id");
-  const userPlan = req.headers.get("x-user-plan") as "FREE" | "PRO";
   if (!userId) return err("Unauthorized", 401);
 
-  // ─── 2. 解析请求体 ────────────────────────────────────────
   const body = await req.json();
   const { agents, message, threadId } = body as {
     agents: AgentId[];
@@ -25,123 +19,80 @@ export async function POST(req: NextRequest) {
     threadId?: string;
   };
 
-  if (!agents?.length || !message?.trim()) {
-    return err("agents 和 message 不能为空");
-  }
+  if (!agents?.length || !message?.trim()) return err("参数错误");
 
-  // ─── 3. 免费用户限制检查（原子扣减，防并发漏洞）──────────
-  if (userPlan === "FREE") {
-    // 免费用户最多选 2 个 AI
-    if (agents.length > FREE_MAX_AGENTS) {
-      return err(`免费版最多同时选 ${FREE_MAX_AGENTS} 个 AI`);
-    }
-
-    // 原子扣减：影响行数为 0 表示已达上限
-    const FREE_LIMIT = parseInt(process.env.FREE_DAILY_LIMIT ?? "5");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const result = await prisma.$executeRaw`
-      UPDATE users
-      SET daily_count = daily_count + 1
-      WHERE id = ${userId}
-        AND (
-          "dailyResetAt" < ${today}
-          OR daily_count < ${FREE_LIMIT}
-        )
-    `;
-
-    // 同时重置跨日计数
-    await prisma.$executeRaw`
-      UPDATE users
-      SET "dailyResetAt" = ${today}, daily_count = 1
-      WHERE id = ${userId} AND "dailyResetAt" < ${today}
-    `;
-
-    if (result === 0) {
-      return err("今日免费次数已用完，请升级 Pro", 429);
-    }
-  }
-
-  // ─── 4. 获取或创建 Thread ─────────────────────────────────
+  // 1. 获取或更新 Thread
   let thread;
   if (threadId) {
-    thread = await prisma.thread.findFirst({
+    thread = await prisma.thread.update({
       where: { id: threadId, userId },
+      data: { agents },
       include: { turns: { orderBy: { createdAt: "asc" } } },
     });
-    if (!thread) return err("Thread 不存在", 404);
   } else {
     thread = await prisma.thread.create({
-      data: {
-        userId,
-        title: truncate(message),
-        agents,
-      },
+      data: { userId, title: truncate(message), agents },
       include: { turns: true },
     });
   }
 
-  // ─── 5. 保存用户消息 ──────────────────────────────────────
+  // 2. 存入用户消息
   await prisma.turn.create({
-    data: {
-      threadId: thread.id,
-      role: "USER",
-      content: message,
-    },
+    data: { threadId: thread.id, role: "USER", content: message },
   });
 
-  // ─── 6. 构建历史消息上下文 ───────────────────────────────
-  // 取最近 10 轮，避免 token 超限
-  const recentTurns = thread.turns.slice(-20);
-  const historyMessages: AIMessage[] = recentTurns.map((t) => ({
+  // 3. 构建上下文
+  const historyMessages: AIMessage[] = thread.turns.slice(-20).map((t) => ({
     role: t.role === "USER" ? "user" : "assistant",
     content: t.content,
   }));
+
+  const agentNames = agents.map((id) => AGENT_MAP.get(id)?.name || id).join(", ");
+  historyMessages.unshift({
+    role: "system",
+    content: `You are ${agentNames}.`,
+  });
   historyMessages.push({ role: "user", content: message });
 
-  // ─── 7. 构建 SSE 响应流 ───────────────────────────────────
+  // 4. SSE 推流
   const encoder = new TextEncoder();
-
   const stream = new ReadableStream({
     async start(controller) {
+      // send 是线程安全的（Node.js 单线程），多个并发 agentTask 可同时调用
       const send = (data: object) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
-      // 先发送 threadId，方便前端跳转
       send({ type: "meta", threadId: thread.id });
 
-      // 并发启动所有 AI 流式请求
+      /**
+       * 修复并发问题：
+       * 使用回调模式的 streamFromAgent，每个 agent 直接消费自己的 response.body，
+       * 通过 onChunk 回调实时 send chunk。
+       * 所有 agentTask 同时启动（Promise.allSettled），chunk 事件会真正交替出现，
+       * 而不是一个 agent 完成后另一个才开始。
+       */
       const agentTasks = agents.map(async (agentId) => {
         const agent = AGENT_MAP.get(agentId);
-        if (!agent) {
-          send({ type: "error", agentId, error: "未知 AI" });
-          return;
-        }
+        if (!agent) return;
 
-        let fullContent = "";
         let isError = false;
+        let fullContent = "";
 
         try {
-          const agentStream = await streamFromAgent(agent, historyMessages);
-          const reader = agentStream.getReader();
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            fullContent += value;
-            send({ type: "chunk", agentId, chunk: value });
-          }
-
+          fullContent = await streamFromAgent(
+            agent,
+            historyMessages,
+            (chunk) => {
+              send({ type: "chunk", agentId, chunk });
+            }
+          );
           send({ type: "done", agentId });
         } catch (e) {
           isError = true;
-          const errorMsg = e instanceof Error ? e.message : "未知错误";
-          send({ type: "error", agentId, error: errorMsg });
+          send({ type: "error", agentId, error: "AI 响应失败" });
         }
 
-        // 保存 AI 回复到数据库
         await prisma.turn.create({
           data: {
             threadId: thread.id,
@@ -154,20 +105,12 @@ export async function POST(req: NextRequest) {
       });
 
       await Promise.allSettled(agentTasks);
-
-      // 全部完成后发终止信号
       send({ type: "finished" });
       controller.close();
     },
   });
 
   return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      // 禁止 Nginx/CDN 缓冲，确保实时推流
-      "X-Accel-Buffering": "no",
-    },
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
   });
 }

@@ -1,5 +1,5 @@
-// src/middleware.ts
-// JWT 鉴权 + 免费用户次数限制（中间件层）
+// src/proxy.ts
+// JWT 鉴权 + 免费用户次数限制（代理层）
 // 注意：次数原子扣减在 API Route 内用数据库事务完成，此处仅做快速拦截
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +10,10 @@ const PROTECTED_PATHS = ["/api/chat", "/api/user", "/api/payment"];
 // 完全公开的路径（无需 token）
 const PUBLIC_PATHS = ["/api/auth/login", "/api/auth/register"];
 
-export async function middleware(req: NextRequest) {
+/**
+ * Next.js 现在要求将函数名从 middleware 改为 proxy
+ */
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 公开路径直接放行
@@ -41,6 +44,7 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
+// 配置保持不变，继续控制该代理逻辑执行的路径范围
 export const config = {
   matcher: ["/api/:path*", "/(app)/:path*"],
 };

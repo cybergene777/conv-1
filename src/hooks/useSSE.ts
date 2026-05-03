@@ -1,7 +1,7 @@
 // src/hooks/useSSE.ts
 // SSE 消费 Hook：解析多 AI 并发流式事件
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { AgentId } from "@/types/ai";
 
@@ -13,6 +13,35 @@ interface UseSSEOptions {
 export function useSSE(options: UseSSEOptions = {}) {
   const { appendChunk, setAgentDone, setAgentError, setLoading } = useChatStore();
   const abortRef = useRef<AbortController | null>(null);
+  
+  // 使用 Ref 保存 options，确保异步循环中能访问到最新的回调
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  // 将 handleEvent 逻辑整合或持久化，防止闭包过时
+  const handleEvent = useCallback((event: Record<string, unknown>) => {
+    switch (event.type) {
+      case "meta":
+        optionsRef.current.onMeta?.(event.threadId as string);
+        break;
+      case "chunk":
+        // 这里的 appendChunk 来自 Zustand，它是稳定的引用
+        appendChunk(event.agentId as AgentId, event.chunk as string);
+        break;
+      case "done":
+        setAgentDone(event.agentId as AgentId);
+        break;
+      case "error":
+        setAgentError(event.agentId as AgentId, event.error as string);
+        break;
+      case "finished":
+        setLoading(false);
+        optionsRef.current.onFinished?.();
+        break;
+    }
+  }, [appendChunk, setAgentDone, setAgentError, setLoading]);
 
   const startStream = useCallback(
     async (
@@ -32,6 +61,7 @@ export function useSSE(options: UseSSEOptions = {}) {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          // 确保这里的 agents 是从 useChat 传进来的最新数组
           body: JSON.stringify({ agents, message, threadId }),
           signal: abortRef.current.signal,
         });
@@ -57,6 +87,7 @@ export function useSSE(options: UseSSEOptions = {}) {
             if (!line.startsWith("data: ")) continue;
             try {
               const event = JSON.parse(line.slice(6));
+              // 调用稳定的 handleEvent
               handleEvent(event);
             } catch {
               // 忽略解析失败
@@ -69,29 +100,8 @@ export function useSSE(options: UseSSEOptions = {}) {
         setLoading(false);
       }
     },
-    [appendChunk, setAgentDone, setAgentError, setLoading]
+    [handleEvent, setLoading] // 依赖 handleEvent 即可
   );
-
-  function handleEvent(event: Record<string, unknown>) {
-    switch (event.type) {
-      case "meta":
-        options.onMeta?.(event.threadId as string);
-        break;
-      case "chunk":
-        appendChunk(event.agentId as AgentId, event.chunk as string);
-        break;
-      case "done":
-        setAgentDone(event.agentId as AgentId);
-        break;
-      case "error":
-        setAgentError(event.agentId as AgentId, event.error as string);
-        break;
-      case "finished":
-        setLoading(false);
-        options.onFinished?.();
-        break;
-    }
-  }
 
   const abort = useCallback(() => {
     abortRef.current?.abort();

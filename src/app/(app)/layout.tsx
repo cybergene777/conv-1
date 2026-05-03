@@ -1,5 +1,4 @@
 // src/app/(app)/layout.tsx
-// App 根布局：左侧边栏（历史列表 + 用户信息）+ 右侧主内容区
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -22,15 +21,21 @@ interface ThreadItem {
   title: string;
   agents: string[];
   updatedAt: string;
-  turns?: { content: string; role: string }[];
 }
 
-/** 从 cookie 中读取 JWT token */
 function getToken(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
   return match ? match[1] : null;
 }
+
+const AGENT_COLORS: Record<string, string> = {
+  deepseek: "#6366f1",
+  kimi:     "#ec4899",
+  qwen:     "#8b5cf6",
+  doubao:   "#06b6d4",
+  glm:      "#10b981",
+};
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -42,40 +47,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // 鉴权检查 + 加载用户信息
   useEffect(() => {
     const token = getToken();
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-    fetch("/api/user", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    if (!token) { router.push("/login"); return; }
+    fetch("/api/user", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setUser(d.data);
-        else router.push("/login");
-      })
+      .then((d) => { if (d.success) setUser(d.data); else router.push("/login"); })
       .catch(() => router.push("/login"));
   }, [router]);
 
-  // 加载历史列表
   const loadThreads = useCallback(() => {
     const token = getToken();
     if (!token) return;
-    fetch("/api/chat", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch("/api/chat", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setThreads(d.data.threads);
-      });
+      .then((d) => { if (d.success) setThreads(d.data.threads); });
   }, [setThreads]);
 
-  useEffect(() => {
-    loadThreads();
-  }, [loadThreads]);
+  useEffect(() => { loadThreads(); }, [loadThreads]);
 
   const handleDelete = async (e: React.MouseEvent, threadId: string) => {
     e.preventDefault();
@@ -90,88 +79,66 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     loadThreads();
   };
 
-  const AGENT_COLORS: Record<string, string> = {
-    deepseek: "#4D6BFE",
-    kimi: "#FF6B35",
-    qwen: "#6B4FBB",
-    doubao: "#00B4D8",
-    glm: "#06D6A0",
-  };
-
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+
       {/* ─── 侧边栏 ─── */}
       <aside
         className="flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden"
         style={{
-          width: sidebarOpen ? 240 : 0,
+          width: sidebarOpen ? 256 : 0,
           background: "var(--bg-sidebar)",
           borderRight: "1px solid var(--border)",
         }}
       >
-        <div className="flex flex-col h-full" style={{ width: 240 }}>
-          {/* 顶部：Logo + 新对话 */}
-          <div className="flex items-center justify-between px-4 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-semibold text-sm"
-              style={{ color: "var(--accent)" }}
-            >
-              <span className="text-base">⟨/⟩</span>
-              <span>Conv:1</span>
+        <div className="flex flex-col h-full" style={{ width: 256 }}>
+
+          {/* 顶部 Logo + 新建 */}
+          <div className="flex items-center justify-between px-4 py-4"
+            style={{ borderBottom: "1px solid var(--border)" }}>
+            <Link href="/" className="flex items-center gap-2 font-semibold text-sm tracking-tight"
+              style={{ color: "var(--text-primary)" }}>
+              <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold"
+                style={{ background: "var(--accent)", color: "#fff" }}>C1</div>
+              Conv:1
             </Link>
-            <Link
-              href="/chat"
-              className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors text-sm"
+            <Link href="/chat"
+              className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
               title="新对话"
-              style={{ color: "var(--text-secondary)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--bg-hover)";
-                e.currentTarget.style.color = "var(--text-primary)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-secondary)";
-              }}
-            >
-              ✎
+              style={{ color: "var(--text-muted)" }}
+              onMouseEnter={(e: any) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+              onMouseLeave={(e: any) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
             </Link>
           </div>
 
-          {/* 历史对话列表 */}
+          {/* 历史列表 */}
           <nav className="flex-1 overflow-y-auto py-2 px-2">
             {(threads as ThreadItem[]).length === 0 ? (
-              <p className="px-3 py-8 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+              <p className="px-3 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
                 暂无历史对话
               </p>
             ) : (
               (threads as ThreadItem[]).map((thread) => {
                 const isActive = pathname === `/chat/${thread.id}`;
-                const isDeletePending = deleteConfirm === thread.id;
+                const isPending = deleteConfirm === thread.id;
                 return (
-                  <Link
-                    key={thread.id}
-                    href={`/chat/${thread.id}`}
-                    className="group flex items-start gap-2 px-3 py-2.5 rounded-xl mb-0.5 transition-colors relative"
+                  <Link key={thread.id} href={`/chat/${thread.id}`}
+                    className="group flex items-start gap-2.5 px-3 py-2.5 rounded-lg mb-0.5 transition-all relative"
                     style={{
                       background: isActive ? "var(--bg-hover)" : "transparent",
                       color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
                     }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) e.currentTarget.style.background = "var(--bg-hover)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
+                    onMouseEnter={(e: any) => { if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"; }}
+                    onMouseLeave={(e: any) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+
                     {/* AI 颜色点 */}
-                    <div className="flex gap-0.5 mt-1 flex-shrink-0">
-                      {thread.agents.slice(0, 3).map((agentId) => (
-                        <span
-                          key={agentId}
-                          className="w-1.5 h-1.5 rounded-full"
-                          style={{ background: AGENT_COLORS[agentId] ?? "#ccc" }}
-                        />
+                    <div className="flex gap-0.5 mt-1.5 flex-shrink-0">
+                      {thread.agents.slice(0, 3).map((id) => (
+                        <span key={id} className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: AGENT_COLORS[id] ?? "#ccc" }} />
                       ))}
                     </div>
 
@@ -182,16 +149,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       </p>
                     </div>
 
-                    {/* 删除按钮（hover 才显示） */}
                     <button
                       onClick={(e) => handleDelete(e, thread.id)}
-                      className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-xs mt-0.5"
-                      title={isDeletePending ? "再次点击确认删除" : "删除"}
-                      style={{
-                        color: isDeletePending ? "#dc2626" : "var(--text-muted)",
-                      }}
-                    >
-                      {isDeletePending ? "!" : "×"}
+                      className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
+                      title={isPending ? "再次点击确认删除" : "删除"}
+                      style={{ color: isPending ? "#ef4444" : "var(--text-muted)" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        {isPending
+                          ? <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>
+                          : <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}
+                      </svg>
                     </button>
                   </Link>
                 );
@@ -199,69 +166,49 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </nav>
 
-          {/* 底部：用户信息 + 设置 */}
-          <div
-            className="px-3 py-3 space-y-1"
-            style={{ borderTop: "1px solid var(--border)" }}
-          >
+          {/* 底部用户区 */}
+          <div className="px-2 py-3 space-y-0.5" style={{ borderTop: "1px solid var(--border)" }}>
             {user && (
               <>
-                {/* 免费用量条 */}
                 {user.plan === "FREE" && user.remaining !== null && (
-                  <div className="px-1 pb-2">
-                    <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+                  <div className="px-3 pb-3 pt-1">
+                    <div className="flex justify-between text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>
                       <span>今日剩余</span>
-                      <span>{user.remaining}/{user.freeLimit} 次</span>
+                      <span>{user.remaining} / {user.freeLimit}</span>
                     </div>
-                    <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${(user.remaining / user.freeLimit) * 100}%`,
-                          background: "var(--accent)",
-                        }}
-                      />
+                    <div className="h-0.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                      <div className="h-full rounded-full transition-all"
+                        style={{ width: `${(user.remaining / user.freeLimit) * 100}%`, background: "var(--accent)" }} />
                     </div>
-                    {user.remaining === 0 && (
-                      <Link
-                        href="/pricing"
-                        className="mt-1.5 block text-center text-xs py-1 rounded-lg font-medium"
-                        style={{ background: "var(--accent)", color: "#fff" }}
-                      >
-                        升级 Pro →
-                      </Link>
-                    )}
                   </div>
                 )}
 
-                <SidebarNavItem href="/history" label="历史记录" icon="◷" active={pathname === "/history"} />
-                <SidebarNavItem href="/settings" label="设置" icon="⚙" active={pathname === "/settings"} />
+                <NavItem href="/history" label="历史记录" active={pathname === "/history"}
+                  icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>} />
+                <NavItem href="/settings" label="设置" active={pathname === "/settings"}
+                  icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>} />
 
                 {/* 用户行 */}
-                <div className="flex items-center gap-2 px-2 py-2">
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                    style={{ background: "var(--accent)", color: "#fff" }}
-                  >
+                <div className="flex items-center gap-2.5 px-3 py-2.5 mt-1 rounded-lg"
+                  style={{ background: "var(--bg-hover)" }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                    style={{ background: "var(--accent)", color: "#fff" }}>
                     {user.email[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
-                      {user.email}
-                    </p>
+                    <p className="text-xs font-medium truncate">{user.email}</p>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {user.plan === "PRO" ? "✦ Pro 会员" : "免费版"}
+                      {user.plan === "PRO" ? "Pro 会员" : "免费版"}
                     </p>
                   </div>
-                  <button
-                    onClick={logout}
-                    className="text-xs transition-colors px-1.5 py-1 rounded"
-                    title="退出登录"
+                  <button onClick={logout} title="退出登录"
+                    className="flex-shrink-0 p-1 rounded transition-colors"
                     style={{ color: "var(--text-muted)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-                  >
-                    ⏻
+                    onMouseEnter={(e: any) => e.currentTarget.style.color = "var(--text-primary)"}
+                    onMouseLeave={(e: any) => e.currentTarget.style.color = "var(--text-muted)"}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
                   </button>
                 </div>
               </>
@@ -271,69 +218,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ─── 主内容区 ─── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* 折叠侧边栏按钮 */}
-        <div className="absolute top-3 left-3 z-20">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-xl text-sm transition-colors"
-              style={{
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              ☰
-            </button>
-          )}
-          {sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-xl text-sm transition-colors opacity-0 hover:opacity-100"
-              style={{
-                color: "var(--text-muted)",
-              }}
-            >
-              ←
-            </button>
-          )}
-        </div>
-
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* 侧边栏折叠按钮 */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute top-3.5 left-3.5 z-20 w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+          style={{ color: "var(--text-muted)", background: "transparent" }}
+          onMouseEnter={(e: any) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={(e: any) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-muted)"; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         {children}
       </div>
     </div>
   );
 }
 
-function SidebarNavItem({
-  href,
-  label,
-  icon,
-  active,
-}: {
-  href: string;
-  label: string;
-  icon: string;
-  active: boolean;
-}) {
+function NavItem({ href, label, icon, active }: { href: string; label: string; icon: React.ReactNode; active: boolean }) {
   return (
-    <Link
-      href={href}
-      className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs transition-colors"
-      style={{
-        background: active ? "var(--bg-hover)" : "transparent",
-        color: active ? "var(--text-primary)" : "var(--text-secondary)",
-      }}
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = "var(--bg-hover)";
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = "transparent";
-      }}
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
+    <Link href={href}
+      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+      style={{ background: active ? "var(--bg-hover)" : "transparent", color: active ? "var(--text-primary)" : "var(--text-secondary)" }}
+      onMouseEnter={(e: any) => { if (!active) e.currentTarget.style.background = "var(--bg-hover)"; }}
+      onMouseLeave={(e: any) => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+      <span style={{ color: "var(--text-muted)" }}>{icon}</span>
+      {label}
     </Link>
   );
 }
