@@ -56,7 +56,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2 font-semibold text-base tracking-tight" style={{ color: "var(--text-primary)" }}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
             style={{ background: "var(--accent)", color: "#fff" }}>C1</div>
-          <span>Conv:1</span>
+          <span style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontWeight: 700 }}>Conv <span style={{ fontWeight: 300, opacity: 0.4 }}>::</span> 1</span>
         </div>
         <div className="flex items-center gap-1">
           <Link href="/pricing" className="text-sm px-4 py-2 rounded-lg transition-colors"
@@ -122,7 +122,7 @@ export default function HomePage() {
               ))}
             </div>
             <span className="mx-auto text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-              Conv:1 — 什么是量子纠缠？
+              Conv :: 1 — 什么是量子纠缠？
             </span>
             <div className="w-12" />
           </div>
@@ -141,10 +141,7 @@ export default function HomePage() {
               {MOCK_REPLIES.map(({ agent, text }) => (
                 <div key={agent.id} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold"
-                      style={{ background: agent.color + "22", color: agent.color }}>
-                      {agent.name[0]}
-                    </div>
+                    <img src={`/ai-avatars/${agent.id}.svg`} alt={agent.name} width={20} height={20} style={{ borderRadius: 5 }} />
                     <span className="text-xs font-semibold" style={{ color: agent.color }}>
                       {agent.name}
                     </span>
@@ -188,10 +185,7 @@ export default function HomePage() {
         <div className="flex justify-center gap-8 flex-wrap">
           {AGENTS.map((a) => (
             <div key={a.id} className="flex flex-col items-center gap-2.5">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold transition-transform"
-                style={{ background: a.color + "18", border: `1px solid ${a.color}33`, color: a.color }}>
-                {a.name[0]}
-              </div>
+              <img src={`/ai-avatars/${a.id}.svg`} alt={a.name} width={48} height={48} style={{ borderRadius: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
               <span className="text-xs font-medium">{a.name}</span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{a.desc}</span>
             </div>
@@ -214,7 +208,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="text-center py-8 text-xs" style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
-        © 2025 Conv:1 · 多 AI 对比助手
+        © 2025 Conv :: 1 · 多 AI 对比助手
       </footer>
     </div>
   );

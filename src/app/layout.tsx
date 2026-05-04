@@ -2,10 +2,19 @@
 // 根布局：注入全局字体、CSS 变量、主题类
 
 import type { Metadata } from "next";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+
+const sourceSerif = Source_Serif_4({ 
+  subsets: ["latin"], 
+  weight: ["400", "700"],
+  variable: "--font-serif" 
+});
+
 export const metadata: Metadata = {
-  title: "Conv:1 — 多 AI 对比助手",
+  title: "Conv :: 1 — 多 AI 对比助手",
   description: "同时向 DeepSeek、Kimi、千问、豆包、智谱 GLM 提问，对比不同 AI 的回答",
   keywords: ["AI", "对比", "DeepSeek", "Kimi", "千问", "豆包", "GLM"],
 };
@@ -20,7 +29,7 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body>
+      <body className={`${inter.variable} ${sourceSerif.variable} font-serif antialiased`}>
         {/* 主题脚本：在 hydration 前同步读取 localStorage，避免闪白 */}
         <script
           dangerouslySetInnerHTML={{

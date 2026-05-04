@@ -50,7 +50,7 @@ export default function LoginPage() {
             style={{ color: "var(--text-primary)" }}>
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
               style={{ background: "var(--accent)", color: "#fff" }}>C1</div>
-            Conv:1
+            Conv :: 1
           </Link>
           <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
             登录以继续

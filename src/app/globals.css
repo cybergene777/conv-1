@@ -3,6 +3,9 @@
 /* KaTeX 公式样式（@import 必须在所有规则之前） */
 @import "katex/dist/katex.min.css";
 
+/* 修改3: Source Serif 4 字体 */
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,300;1,8..60,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -78,8 +81,9 @@
   * { box-sizing: border-box; }
 
   html {
-    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
-      'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    /* 修改3: Source Serif 4 作为全站英文字体，保留中文字体栈 */
+    font-family: 'Source Serif 4', 'PingFang SC', 'Hiragino Sans GB',
+      'Microsoft YaHei', Georgia, serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
@@ -102,8 +106,44 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 }
 
-/* === Utility extensions === */
+/* === Sidebar animations (修改1+2) === */
 @layer utilities {
+  /* 修改1: 侧边栏滑入/滑出 */
+  .sidebar-slide {
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-slide.open {
+    transform: translateX(0);
+  }
+
+  /* 修改2: 对话历史分组标签 */
+  .thread-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    padding: 8px 12px 3px;
+    user-select: none;
+  }
+
+  /* 侧边栏侧滚条 */
+  .sidebar-scroll::-webkit-scrollbar { width: 3px; }
+  .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Thread item delete button */
+  .thread-item .thread-del { opacity: 0; transition: opacity 0.12s; }
+  .thread-item:hover .thread-del { opacity: 1; }
+
+  /* Icon button hover */
+  .icon-btn:hover {
+    background: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+  }
+
+  /* Typing cursor */
   .typing-cursor::after {
     content: "▋";
     animation: blink 1s step-end infinite;
@@ -182,7 +222,6 @@
   .prose-chat del { opacity: 0.5; }
   .prose-chat hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
   .prose-chat input[type="checkbox"] { margin-right: 0.4em; accent-color: var(--accent); }
-  /* KaTeX 公式布局 */
   .prose-chat .math-block  { overflow-x: auto; padding: 0.5em 0; text-align: center; }
   .prose-chat .math-inline { vertical-align: middle; }
   .prose-chat .math-error  { color: #ef4444; font-size: 0.8em; font-family: monospace; }
