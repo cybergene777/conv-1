@@ -7,6 +7,7 @@ export interface AIAgent {
   model: string;
   color: string;
   apiKeyEnv: string; // 对应的环境变量名
+  avatar?: string;
 }
 
 export type AgentId = "deepseek" | "kimi" | "qwen" | "doubao" | "glm";

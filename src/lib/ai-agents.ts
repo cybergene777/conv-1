@@ -11,6 +11,7 @@ export const AI_AGENTS: AIAgent[] = [
     model: "deepseek-chat",
     color: "#4D6BFE",
     apiKeyEnv: "DEEPSEEK_API_KEY",
+    avatar: "deepseek.png",
   },
   {
     id: "kimi",
@@ -19,6 +20,7 @@ export const AI_AGENTS: AIAgent[] = [
     model: "moonshot-v1-8k",
     color: "#FF6B35",
     apiKeyEnv: "KIMI_API_KEY",
+    avatar: "kimi.png",
   },
   {
     id: "qwen",
@@ -27,6 +29,7 @@ export const AI_AGENTS: AIAgent[] = [
     model: "qwen-plus",
     color: "#6B4FBB",
     apiKeyEnv: "QWEN_API_KEY",
+    avatar: "qwen.png",
   },
   {
     id: "doubao",
@@ -36,6 +39,7 @@ export const AI_AGENTS: AIAgent[] = [
     model: process.env.DOUBAO_ENDPOINT_ID ?? "doubao-pro-4k",
     color: "#00B4D8",
     apiKeyEnv: "DOUBAO_API_KEY",
+    avatar: "doubao.png",
   },
   {
     id: "glm",
@@ -44,6 +48,7 @@ export const AI_AGENTS: AIAgent[] = [
     model: "glm-4-flash",
     color: "#06D6A0",
     apiKeyEnv: "GLM_API_KEY",
+    avatar: "glm.png",
   },
 ];
 

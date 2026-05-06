@@ -191,7 +191,7 @@ function EmptyState({ agents }: { agents: AgentId[] }) {
               <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 {/* 修改5: 使用官方 SVG */}
                 <img
-                  src={`/ai-avatars/${id}.svg`}
+                  src={`/ai-avatars/${id}.png`}
                   alt={meta?.name ?? id}
                   width={size}
                   height={size}

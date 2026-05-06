@@ -20,40 +20,69 @@ interface ThreadItem {
   turns: { content: string; role: string }[];
 }
 
+const ALL_AGENTS = ["deepseek", "kimi", "qwen", "doubao", "glm"];
+
 const AGENT_COLORS: Record<string, string> = {
   deepseek: "#4D6BFE",
-  kimi: "#FF6B35",
-  qwen: "#6B4FBB",
-  doubao: "#00B4D8",
-  glm: "#06D6A0",
+  kimi:     "#FF6B35",
+  qwen:     "#6B4FBB",
+  doubao:   "#00B4D8",
+  glm:      "#06D6A0",
 };
-const AGENT_NAMES: Record<string, string> = {
-  deepseek: "DeepSeek",
-  kimi: "Kimi",
-  qwen: "千问",
-  doubao: "豆包",
-  glm: "GLM",
-};
+
+// 3×3 dot grid — lights up dots for active agents in order
+function AgentDotGrid({ agents }: { agents: string[] }) {
+  const activeSet = new Set(agents);
+  // assign colors by sorted agent order so position is stable
+  const slots: { key: string; color: string; active: boolean }[] = ALL_AGENTS.map((id) => ({
+    key: id,
+    color: AGENT_COLORS[id],
+    active: activeSet.has(id),
+  }));
+  // pad to 9 slots
+  while (slots.length < 9) slots.push({ key: `pad-${slots.length}`, color: "#ccc", active: false });
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 7px)",
+      gridTemplateRows: "repeat(3, 7px)",
+      gap: 3,
+      flexShrink: 0,
+    }}>
+      {slots.slice(0, 9).map((s, i) => (
+        <div key={i} style={{
+          width: 7, height: 7, borderRadius: "50%",
+          background: s.active ? s.color : "var(--border)",
+          transition: "background 0.2s",
+        }} />
+      ))}
+    </div>
+  );
+}
 
 export default function HistoryPage() {
   const [threads, setThreads] = useState<ThreadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
     fetch("/api/chat?limit=50", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setThreads(d.data.threads);
-      })
+      .then((d) => { if (d.success) setThreads(d.data.threads); })
       .finally(() => setLoading(false));
   }, []);
 
   const filtered = threads.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase())
   );
+
+  function executeSearch() {
+    setSearch(inputValue);
+  }
 
   async function handleDelete(id: string) {
     const token = getToken();
@@ -75,20 +104,55 @@ export default function HistoryPage() {
         <h1 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
           历史记录
         </h1>
-        <div className="flex-1 max-w-xs">
-          <input
-            type="text"
-            placeholder="搜索…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-1.5 rounded-lg text-sm outline-none"
-            style={{
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-          />
+
+        {/* 搜索框 + 图标 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, flex: "0 0 auto", maxWidth: 280, width: "100%" }}>
+          <div style={{
+            display: "flex", alignItems: "center", flex: 1,
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            overflow: "hidden",
+            transition: "border-color 0.15s",
+          }}
+            onFocusCapture={(e: any) => e.currentTarget.style.borderColor = "var(--accent)"}
+            onBlurCapture={(e: any) => e.currentTarget.style.borderColor = "var(--border)"}
+          >
+            <input
+              type="text"
+              placeholder="搜索对话…"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                // live search as user types
+                setSearch(e.target.value);
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") executeSearch(); }}
+              style={{
+                flex: 1, padding: "7px 10px", fontSize: 13,
+                background: "none", border: "none", outline: "none",
+                color: "var(--text-primary)",
+              }}
+            />
+            <button
+              onClick={executeSearch}
+              style={{
+                padding: "0 10px", height: 34,
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-muted)", display: "flex", alignItems: "center",
+                transition: "color 0.13s",
+              }}
+              onMouseEnter={(e: any) => e.currentTarget.style.color = "var(--accent)"}
+              onMouseLeave={(e: any) => e.currentTarget.style.color = "var(--text-muted)"}
+              title="搜索"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+          </div>
         </div>
+
         <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>
           共 {filtered.length} 条
         </span>
@@ -99,11 +163,7 @@ export default function HistoryPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-20 rounded-xl animate-pulse"
-                style={{ background: "var(--bg-secondary)" }}
-              />
+              <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: "var(--bg-secondary)" }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -113,11 +173,8 @@ export default function HistoryPage() {
               {search ? "没有匹配的对话" : "暂无历史记录"}
             </p>
             {!search && (
-              <Link
-                href="/chat"
-                className="text-sm px-4 py-2 rounded-xl mt-1"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
+              <Link href="/chat" className="text-sm px-4 py-2 rounded-xl mt-1"
+                style={{ background: "var(--accent)", color: "#fff" }}>
                 开始第一次对话
               </Link>
             )}
@@ -128,24 +185,12 @@ export default function HistoryPage() {
               <div
                 key={thread.id}
                 className="group flex items-center gap-4 px-5 py-4 rounded-xl transition-colors"
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border)",
-                }}
+                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
               >
-                {/* AI 颜色点 */}
-                <div className="flex gap-1 flex-shrink-0">
-                  {thread.agents.map((id) => (
-                    <span
-                      key={id}
-                      className="w-2 h-2 rounded-full"
-                      title={AGENT_NAMES[id] ?? id}
-                      style={{ background: AGENT_COLORS[id] ?? "#ccc" }}
-                    />
-                  ))}
-                </div>
+                {/* 3×3 dot grid */}
+                <AgentDotGrid agents={thread.agents} />
 
                 {/* 标题 + 预览 */}
                 <Link href={`/chat/${thread.id}`} className="flex-1 min-w-0">

@@ -3,11 +3,11 @@
 import Link from "next/link";
 
 const AGENTS = [
-  { id: "deepseek", name: "DeepSeek", color: "#6366f1", desc: "深度推理" },
-  { id: "kimi",     name: "Kimi",     color: "#ec4899", desc: "长文理解" },
-  { id: "qwen",     name: "千问",     color: "#8b5cf6", desc: "中文专精" },
-  { id: "doubao",   name: "豆包",     color: "#06b6d4", desc: "创意写作" },
-  { id: "glm",      name: "GLM",      color: "#10b981", desc: "代码助手" },
+  { id: "deepseek", name: "DeepSeek", color: "#2563eb", desc: "深度推理" },
+  { id: "kimi",     name: "Kimi",     color: "#db2777", desc: "长文理解" },
+  { id: "qwen",     name: "千问",     color: "#7c3aed", desc: "中文专精" },
+  { id: "doubao",   name: "豆包",     color: "#0891b2", desc: "创意写作" },
+  { id: "glm",      name: "智谱 GLM", color: "#16a34a", desc: "代码助手" },
 ];
 
 const FEATURES = [
@@ -141,7 +141,7 @@ export default function HomePage() {
               {MOCK_REPLIES.map(({ agent, text }) => (
                 <div key={agent.id} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2">
-                    <img src={`/ai-avatars/${agent.id}.svg`} alt={agent.name} width={20} height={20} style={{ borderRadius: 5 }} />
+                    <img src={`/ai-avatars/${agent.id}.png`} alt={agent.name} width={20} height={20} style={{ borderRadius: 5 }} />
                     <span className="text-xs font-semibold" style={{ color: agent.color }}>
                       {agent.name}
                     </span>
@@ -185,7 +185,7 @@ export default function HomePage() {
         <div className="flex justify-center gap-8 flex-wrap">
           {AGENTS.map((a) => (
             <div key={a.id} className="flex flex-col items-center gap-2.5">
-              <img src={`/ai-avatars/${a.id}.svg`} alt={a.name} width={48} height={48} style={{ borderRadius: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+              <img src={`/ai-avatars/${a.id}.png`} alt={a.name} width={48} height={48} style={{ borderRadius: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
               <span className="text-xs font-medium">{a.name}</span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{a.desc}</span>
             </div>

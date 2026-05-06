@@ -45,7 +45,7 @@ export default function AISelector({ isPro = false, disabled = false }: AISelect
           >
             {/* 修改5: 官方 SVG 图标 */}
             <img
-              src={`/ai-avatars/${agent.id}.svg`}
+              src={`/ai-avatars/${agent.avatar}`}
               alt={agent.name}
               width={14}
               height={14}
