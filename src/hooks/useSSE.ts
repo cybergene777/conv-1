@@ -48,7 +48,8 @@ export function useSSE(options: UseSSEOptions = {}) {
       agents: AgentId[],
       message: string,
       threadId?: string,
-      token?: string
+      token?: string,
+      mode?: "compare" | "chat"
     ) => {
       // 取消上一次未完成的请求
       abortRef.current?.abort();
@@ -61,8 +62,7 @@ export function useSSE(options: UseSSEOptions = {}) {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          // 确保这里的 agents 是从 useChat 传进来的最新数组
-          body: JSON.stringify({ agents, message, threadId }),
+          body: JSON.stringify({ agents, message, threadId, mode: mode ?? "compare" }),
           signal: abortRef.current.signal,
         });
 

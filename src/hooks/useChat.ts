@@ -72,7 +72,7 @@ export function useChat() {
     useChatStore();
   
   // 虽然这里解构了 selectedAgents，但仅用于 UI 响应式显示
-  const { selectedAgents } = useSettingsStore();
+  const { selectedAgents, conversationMode } = useSettingsStore();
 
   // 用 ref 追踪当前 threadId，避免闭包过期
   const currentThreadIdRef = useRef<string | null>(null);
@@ -101,6 +101,7 @@ export function useChat() {
        * 这样即使本函数被 useCallback 缓存，内部读取到的永远是执行那一刻的最新的模型列表。
        */
       const activeAgents = agents ?? useSettingsStore.getState().selectedAgents;
+      const activeMode = useSettingsStore.getState().conversationMode;
       
       if (!activeAgents.length || !message.trim()) {
         console.warn("No active agents or empty message");
@@ -112,8 +113,8 @@ export function useChat() {
 
       const token = getToken();
       
-      // 调用 SSE 开始传输，确保传入的是最新的 activeAgents
-      await startStream(activeAgents, message, currentThread?.id, token ?? undefined);
+      // 调用 SSE 开始传输，透传 mode 参数
+      await startStream(activeAgents, message, currentThread?.id, token ?? undefined, activeMode);
     },
     // 去掉对 selectedAgents 变量的依赖，改由内部实时抓取，增强稳定性[cite: 1]
     [currentThread?.id, resetStreaming, startStream]

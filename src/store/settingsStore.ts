@@ -10,11 +10,14 @@ interface SettingsStore {
   selectedAgents: AgentId[];
   // 主题
   theme: "light" | "dark" | "system";
+  // 对话模式
+  conversationMode: "compare" | "chat";
 
   // Actions
   toggleAgent: (agentId: AgentId, maxAgents: number) => void;
   setSelectedAgents: (agents: AgentId[]) => void;
   setTheme: (theme: "light" | "dark" | "system") => void;
+  setConversationMode: (mode: "compare" | "chat") => void;
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -22,6 +25,7 @@ export const useSettingsStore = create<SettingsStore>()(
     (set, get) => ({
       selectedAgents: ["deepseek", "kimi"], // 默认选中前两个
       theme: "system",
+      conversationMode: "compare", // 默认对比模式
 
       toggleAgent: (agentId, maxAgents) => {
         const current = get().selectedAgents;
@@ -37,6 +41,7 @@ export const useSettingsStore = create<SettingsStore>()(
 
       setSelectedAgents: (agents) => set({ selectedAgents: agents }),
       setTheme: (theme) => set({ theme }),
+      setConversationMode: (mode) => set({ conversationMode: mode }),
     }),
     {
       name: "conv1-settings", // localStorage key

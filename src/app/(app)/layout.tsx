@@ -259,8 +259,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               fontSize: 11, fontWeight: 800, letterSpacing: "-0.5px", flexShrink: 0,
             }}>C1</div>
             <span style={{
-              fontFamily: "'Source Serif 4', Georgia, serif",
-              fontWeight: 700, fontSize: 15, color: "var(--text-primary)", whiteSpace: "nowrap",
+              fontFamily: "'Satoshi', 'Source Serif 4', Georgia, serif",
+              fontWeight: 900,
+              fontSize: 15,
+              color: "var(--text-primary)",
+              whiteSpace: "nowrap",
+              letterSpacing: "-0.8px",
             }}>
               Conv <span style={{ fontWeight: 300, opacity: 0.4 }}>::</span> 1
             </span>
@@ -462,7 +466,7 @@ function UserMenuBtn({
           <div style={{ padding: "6px 6px" }}>
             <MenuRow icon={
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            } label="账户信息" onClick={() => { setOpen(false); router.push("/settings"); }} />
+            } label="账户信息" onClick={() => { setOpen(false); router.push("/account"); }} />
             <MenuRow icon={
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             } label="设置" onClick={() => { setOpen(false); router.push("/settings"); }} />

@@ -13,10 +13,11 @@ export async function POST(req: NextRequest) {
   if (!userId) return err("Unauthorized", 401);
 
   const body = await req.json();
-  const { agents, message, threadId } = body as {
+  const { agents, message, threadId, mode = "compare" } = body as {
     agents: AgentId[];
     message: string;
     threadId?: string;
+    mode?: "compare" | "chat";  // compare=对比模式，chat=群聊模式
   };
 
   if (!agents?.length || !message?.trim()) return err("参数错误");
@@ -41,70 +42,114 @@ export async function POST(req: NextRequest) {
     data: { threadId: thread.id, role: "USER", content: message },
   });
 
-  // 3. 构建上下文
-  const historyMessages: AIMessage[] = thread.turns.slice(-20).map((t) => ({
+  // 3. 构建历史上下文（公共部分）
+  const baseHistory: AIMessage[] = thread.turns.slice(-20).map((t) => ({
     role: t.role === "USER" ? "user" : "assistant",
     content: t.content,
   }));
-
-  const agentNames = agents.map((id) => AGENT_MAP.get(id)?.name || id).join(", ");
-  historyMessages.unshift({
-    role: "system",
-    content: `You are ${agentNames}.`,
-  });
-  historyMessages.push({ role: "user", content: message });
 
   // 4. SSE 推流
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      // send 是线程安全的（Node.js 单线程），多个并发 agentTask 可同时调用
       const send = (data: object) => {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
       send({ type: "meta", threadId: thread.id });
 
-      /**
-       * 修复并发问题：
-       * 使用回调模式的 streamFromAgent，每个 agent 直接消费自己的 response.body，
-       * 通过 onChunk 回调实时 send chunk。
-       * 所有 agentTask 同时启动（Promise.allSettled），chunk 事件会真正交替出现，
-       * 而不是一个 agent 完成后另一个才开始。
-       */
-      const agentTasks = agents.map(async (agentId) => {
-        const agent = AGENT_MAP.get(agentId);
-        if (!agent) return;
+      if (mode === "compare") {
+        // ── 对比模式：所有模型并发，各自独立回复 ──────────────────────
+        const agentNames = agents.map((id) => AGENT_MAP.get(id)?.name || id).join(", ");
+        const messages: AIMessage[] = [
+          { role: "system", content: `You are one of the following AI assistants: ${agentNames}. Answer the user's question.` },
+          ...baseHistory,
+          { role: "user", content: message },
+        ];
 
-        let isError = false;
-        let fullContent = "";
+        const agentTasks = agents.map(async (agentId) => {
+          const agent = AGENT_MAP.get(agentId);
+          if (!agent) return;
 
-        try {
-          fullContent = await streamFromAgent(
-            agent,
-            historyMessages,
-            (chunk) => {
+          let isError = false;
+          let fullContent = "";
+
+          try {
+            fullContent = await streamFromAgent(agent, messages, (chunk) => {
               send({ type: "chunk", agentId, chunk });
-            }
-          );
-          send({ type: "done", agentId });
-        } catch (e) {
-          isError = true;
-          send({ type: "error", agentId, error: "AI 响应失败" });
-        }
+            });
+            send({ type: "done", agentId });
+          } catch {
+            isError = true;
+            send({ type: "error", agentId, error: "AI 响应失败" });
+          }
 
-        await prisma.turn.create({
-          data: {
-            threadId: thread.id,
-            role: "ASSISTANT",
-            content: fullContent || "[响应失败]",
-            agentId,
-            isError,
-          },
+          await prisma.turn.create({
+            data: {
+              threadId: thread.id,
+              role: "ASSISTANT",
+              content: fullContent || "[响应失败]",
+              agentId,
+              isError,
+            },
+          });
         });
-      });
 
-      await Promise.allSettled(agentTasks);
+        await Promise.allSettled(agentTasks);
+
+      } else {
+        // ── 群聊模式：模型依次回复，后者能看到前者的内容 ─────────────
+        const conversationSoFar: AIMessage[] = [
+          ...baseHistory,
+          { role: "user", content: message },
+        ];
+
+        for (const agentId of agents) {
+          const agent = AGENT_MAP.get(agentId);
+          if (!agent) continue;
+
+          const agentName = agent.name;
+
+          // 构建 system prompt：告知当前角色和对话上下文
+          const messages: AIMessage[] = [
+            {
+              role: "system",
+              content: `你是 ${agentName}。这是一个多 AI 群聊场景，多个 AI 会依次发言。请基于前面的对话内容，用自己的角度补充或回应，自然衔接，不要重复前面已说的内容。`,
+            },
+            ...conversationSoFar,
+          ];
+
+          let isError = false;
+          let fullContent = "";
+
+          try {
+            fullContent = await streamFromAgent(agent, messages, (chunk) => {
+              send({ type: "chunk", agentId, chunk });
+            });
+            send({ type: "done", agentId });
+
+            // 把当前 AI 的回复追加到上下文，供下一个 AI 参考
+            conversationSoFar.push({
+              role: "assistant",
+              content: `[${agentName}]: ${fullContent}`,
+            });
+          } catch {
+            isError = true;
+            send({ type: "error", agentId, error: "AI 响应失败" });
+          }
+
+          await prisma.turn.create({
+            data: {
+              threadId: thread.id,
+              role: "ASSISTANT",
+              content: fullContent || "[响应失败]",
+              agentId,
+              isError,
+            },
+          });
+        }
+      }
+
       send({ type: "finished" });
       controller.close();
     },
@@ -114,3 +159,4 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
   });
 }
+

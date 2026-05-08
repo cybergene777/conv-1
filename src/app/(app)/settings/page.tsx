@@ -1,10 +1,13 @@
 // src/app/(app)/settings/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useChat } from "@/hooks/useChat";
+import { AI_AGENTS, FREE_MAX_AGENTS } from "@/lib/ai-agents";
+import { AgentId } from "@/types/ai";
+import ModelSelector from "@/components/chat/ModelSelector";
 
 function getToken(): string | null {
   if (typeof document === "undefined") return null;
@@ -22,21 +25,23 @@ interface UserInfo {
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useSettingsStore();
+  const router = useRouter();
+  const { theme, setTheme, conversationMode, setConversationMode, selectedAgents } =
+    useSettingsStore();
   const { logout } = useChat();
 
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-  const [pwLoading, setPwLoading] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
     fetch("/api/user", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => { if (d.success) setUser(d.data); });
+      .then((d) => {
+        if (d.success) setUser(d.data);
+      });
   }, []);
 
   // 主题切换副作用
@@ -53,83 +58,55 @@ export default function SettingsPage() {
     }
   }, [theme]);
 
-  async function handlePasswordChange(e: React.FormEvent) {
-    e.preventDefault();
-    setPwMsg(null);
-    if (newPassword.length < 8) {
-      setPwMsg({ type: "err", text: "新密码至少 8 位" });
-      return;
-    }
-    setPwLoading(true);
-    try {
-      const token = getToken();
-      const res = await fetch("/api/user", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ oldPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setPwMsg({ type: "ok", text: "密码已更新" });
-        setOldPassword("");
-        setNewPassword("");
-      } else {
-        setPwMsg({ type: "err", text: data.error ?? "更新失败" });
-      }
-    } catch {
-      setPwMsg({ type: "err", text: "网络错误" });
-    } finally {
-      setPwLoading(false);
-    }
-  }
+  // 获取已选模型的显示名称
+  const selectedModelNames = selectedAgents
+    .map((id) => AI_AGENTS.find((a) => a.id === id)?.name)
+    .filter(Boolean)
+    .join(", ");
+
+  const maxModels = user?.plan === "PRO" ? AI_AGENTS.length : FREE_MAX_AGENTS;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
+      {/* Header */}
       <div
         className="px-8 py-5 flex-shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <h1 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-          设置
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={() => router.back()}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              color: "var(--text-muted)",
+              padding: 0,
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            设置
+          </h1>
+        </div>
       </div>
 
+      {/* Content */}
       <div className="flex-1 px-8 py-8 max-w-xl space-y-8">
-
-        {/* 账号信息 */}
-        <Section title="账号">
-          {user && (
-            <div className="space-y-3">
-              <Row label="邮箱" value={user.email} />
-              <Row
-                label="计划"
-                value={
-                  user.plan === "PRO" ? (
-                    <span style={{ color: "var(--accent)" }}>✦ Pro 会员</span>
-                  ) : (
-                    <span>
-                      免费版{" "}
-                      <Link href="/pricing" style={{ color: "var(--accent)" }}>
-                        升级 →
-                      </Link>
-                    </span>
-                  )
-                }
-              />
-              {user.plan === "FREE" && user.remaining !== null && (
-                <Row label="今日剩余" value={`${user.remaining} / ${user.freeLimit} 次`} />
-              )}
-              <Row
-                label="注册时间"
-                value={new Date(user.createdAt).toLocaleDateString("zh-CN")}
-              />
-            </div>
-          )}
-        </Section>
-
         {/* 外观 */}
         <Section title="外观">
           <div className="flex gap-2">
@@ -144,68 +121,197 @@ export default function SettingsPage() {
                   border: `1.5px solid ${theme === t ? "var(--accent)" : "var(--border)"}`,
                 }}
               >
-                {{ system: "跟随系统", light: "浅色", dark: "深色" }[t]}
+                {{ system: "🔄 跟随系统", light: "☀️ 浅色", dark: "🌙 深色" }[t]}
               </button>
             ))}
           </div>
         </Section>
 
-        {/* 修改密码 */}
-        <Section title="修改密码">
-          <form onSubmit={handlePasswordChange} className="space-y-3">
-            <input
-              type="password"
-              placeholder="当前密码"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
-                color: "var(--text-primary)",
-              }}
-            />
-            <input
-              type="password"
-              placeholder="新密码（至少 8 位）"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={{
-                background: "var(--input-bg)",
-                border: "1px solid var(--input-border)",
-                color: "var(--text-primary)",
-              }}
-            />
-            {pwMsg && (
-              <p
-                className="text-sm px-3 py-2 rounded-lg"
-                style={{
-                  background: pwMsg.type === "ok" ? "#d1fae5" : "#fee2e2",
-                  color: pwMsg.type === "ok" ? "#065f46" : "#dc2626",
-                }}
-              >
-                {pwMsg.text}
-              </p>
-            )}
+        {/* 模型选择 */}
+        <Section title="默认模型">
+          <div style={{ position: "relative" }}>
             <button
-              type="submit"
-              disabled={pwLoading}
-              className="px-5 py-2 rounded-xl text-sm font-medium"
+              onClick={() => setShowModelSelector(!showModelSelector)}
               style={{
-                background: "var(--accent)",
-                color: "#fff",
-                opacity: pwLoading ? 0.7 : 1,
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--input-bg)",
+                color: "var(--text-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                fontSize: 13,
+                transition: "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
               }}
             >
-              {pwLoading ? "更新中…" : "更新密码"}
+              <span>
+                {selectedModelNames || "选择模型..."}
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginLeft: 8,
+                  }}
+                >
+                  ({selectedAgents.length}/{maxModels})
+                </span>
+              </span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: showModelSelector ? "rotate(180deg)" : "none",
+                  transition: "transform 0.15s",
+                  color: "var(--text-muted)",
+                }}
+              >
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
             </button>
-          </form>
+
+            {/* Model Selector Card */}
+            {showModelSelector && (
+              <div ref={selectorRef}>
+                <ModelSelector
+                  isPro={user?.plan === "PRO"}
+                  onClose={() => setShowModelSelector(false)}
+                  direction="down"
+                />
+              </div>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, margin: "8px 0 0 0" }}>
+            💡 这些模型将用于新对话。可在对话中随时修改。
+          </p>
         </Section>
 
-        {/* 退出 */}
+        {/* 对话模式 */}
+        <Section title="对话模式">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* 对比模式 */}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px",
+                borderRadius: 8,
+                border: "1.5px solid transparent",
+                background: conversationMode === "compare" ? "var(--bg-hover)" : "transparent",
+                cursor: "pointer",
+                transition: "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (conversationMode !== "compare") {
+                  (e.currentTarget as HTMLLabelElement).style.borderColor = "var(--border)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (conversationMode !== "compare") {
+                  (e.currentTarget as HTMLLabelElement).style.borderColor = "transparent";
+                }
+              }}
+            >
+              <input
+                type="radio"
+                name="mode"
+                value="compare"
+                checked={conversationMode === "compare"}
+                onChange={() => setConversationMode("compare")}
+                style={{
+                  marginTop: 2,
+                  cursor: "pointer",
+                  accentColor: "var(--accent)",
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                    marginBottom: 4,
+                  }}
+                >
+                  对比模式
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: "1.5" }}>
+                  所有选中的模型同时独立回复同一问题，可对比不同回答。
+                </div>
+              </div>
+            </label>
+
+            {/* 群聊模式 */}
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "12px",
+                borderRadius: 8,
+                border: "1.5px solid transparent",
+                background: conversationMode === "chat" ? "var(--bg-hover)" : "transparent",
+                cursor: "pointer",
+                transition: "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (conversationMode !== "chat") {
+                  (e.currentTarget as HTMLLabelElement).style.borderColor = "var(--border)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (conversationMode !== "chat") {
+                  (e.currentTarget as HTMLLabelElement).style.borderColor = "transparent";
+                }
+              }}
+            >
+              <input
+                type="radio"
+                name="mode"
+                value="chat"
+                checked={conversationMode === "chat"}
+                onChange={() => setConversationMode("chat")}
+                style={{
+                  marginTop: 2,
+                  cursor: "pointer",
+                  accentColor: "var(--accent)",
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                    marginBottom: 4,
+                  }}
+                >
+                  群聊模式
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: "1.5" }}>
+                  模型按顺序依次回复，第一个模型回复后，第二个模型接着回复，形成对话链。
+                </div>
+              </div>
+            </label>
+          </div>
+        </Section>
+
+        {/* 其他 */}
         <Section title="其他">
           <button
             onClick={logout}
@@ -214,6 +320,8 @@ export default function SettingsPage() {
               background: "var(--bg-secondary)",
               border: "1px solid var(--border)",
               color: "var(--text-secondary)",
+              cursor: "pointer",
+              width: "100%",
             }}
           >
             退出登录
@@ -239,15 +347,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       >
         {children}
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span style={{ color: "var(--text-secondary)" }}>{label}</span>
-      <span style={{ color: "var(--text-primary)" }}>{value}</span>
     </div>
   );
 }

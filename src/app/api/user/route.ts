@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       email: true,
+      nickname: true,
+      avatar: true,
       plan: true,
       dailyCount: true,
       dailyResetAt: true,
