@@ -7,12 +7,10 @@ import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useChat } from "@/hooks/useChat";
 import AISelector from "./AISelector";
-import ModelSelector from "./ModelSelector";
 import ChatInput from "./ChatInput";
 import MessageGroup from "./MessageGroup";
 import { Turn } from "@/types/chat";
 import { AgentId } from "@/types/ai";
-import { AI_AGENTS } from "@/lib/ai-agents";
 import Link from "next/link";
 
 interface ChatContainerProps {
@@ -28,7 +26,6 @@ export default function ChatContainer({ threadId, isPro = false, remaining }: Ch
 
   const [input, setInput] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
-  const [showModelSelector, setShowModelSelector] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,61 +107,12 @@ export default function ChatContainer({ threadId, isPro = false, remaining }: Ch
           onChange={setInput}
           onSend={handleSend}
           disabled={isLoading}
-          placeholder={selectedAgents.length === 0 ? "请先选择至少一个 AI…" : 
+          placeholder={selectedAgents.length === 0 ? "请先在侧边栏选择 AI…" : 
             conversationMode === "chat" 
               ? `向 ${activeAgents.length} 个 AI 群聊提问…` 
               : `向 ${activeAgents.length} 个 AI 同时提问…`}
         />
       )}
-      <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
-        {/* 模式标签 */}
-        <span style={{ 
-          fontSize: 11, fontWeight: 500, color: "var(--text-muted)", flexShrink: 0,
-          background: "var(--bg-hover)", padding: "2px 8px", borderRadius: 6,
-        }}>
-          {conversationMode === "chat" ? "群聊" : "对比"}
-        </span>
-        {/* 模型选择区 */}
-        <div style={{ flex: 1, position: "relative" }}>
-          <AISelector isPro={isPro} disabled={isLoading} />
-        </div>
-        {/* 模型选择按钮 */}
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <button
-            onClick={() => setShowModelSelector((v) => !v)}
-            disabled={isLoading}
-            title="选择模型"
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "4px 10px", borderRadius: 8, fontSize: 12,
-              border: "1px solid var(--border)",
-              background: showModelSelector ? "var(--bg-hover)" : "transparent",
-              color: "var(--text-secondary)",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              opacity: isLoading ? 0.5 : 1,
-              transition: "all 0.12s",
-            }}
-            onMouseEnter={(e) => { if (!isLoading) (e.currentTarget as HTMLButtonElement).style.background = "var(--bg-hover)"; }}
-            onMouseLeave={(e) => { if (!showModelSelector) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <circle cx="19" cy="5" r="2"/>
-              <circle cx="5" cy="19" r="2"/>
-              <line x1="14.15" y1="9.85" x2="17.2" y2="6.8"/>
-              <line x1="6.8" y1="17.2" x2="9.85" y2="14.15"/>
-            </svg>
-            {selectedAgents.length} 个
-          </button>
-          {showModelSelector && (
-            <ModelSelector
-              isPro={isPro}
-              disabled={isLoading}
-              onClose={() => setShowModelSelector(false)}
-            />
-          )}
-        </div>
-      </div>
       <p style={{ marginTop: 10, textAlign: "center", fontSize: 11, color: "var(--text-muted)" }}>
         AI 回答仅供参考，请自行判断
       </p>

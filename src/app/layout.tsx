@@ -2,15 +2,31 @@
 // 根布局：注入全局字体、CSS 变量、主题类
 
 import type { Metadata } from "next";
-import { Inter, Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// 使用本地字体文件，避免构建时请求 Google Fonts
+// path 相对于此文件（src/app/layout.tsx），向上两级到项目根再进 public/fonts
+const inter = localFont({
+  src: [
+    { path: "../../public/fonts/Inter-Regular.woff2",  weight: "400", style: "normal" },
+    { path: "../../public/fonts/Inter-Medium.woff2",   weight: "500", style: "normal" },
+    { path: "../../public/fonts/Inter-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/Inter-Bold.woff2",     weight: "700", style: "normal" },
+  ],
+  variable: "--font-sans",
+  display: "swap",
+  fallback: ["system-ui", "sans-serif"],
+});
 
-const sourceSerif = Source_Serif_4({ 
-  subsets: ["latin"], 
-  weight: ["400", "700"],
-  variable: "--font-serif" 
+const sourceSerif = localFont({
+  src: [
+    { path: "../../public/fonts/SourceSerif4-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/SourceSerif4-Bold.woff2",    weight: "700", style: "normal" },
+  ],
+  variable: "--font-serif",
+  display: "swap",
+  fallback: ["Georgia", "serif"],
 });
 
 export const metadata: Metadata = {

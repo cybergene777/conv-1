@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUserStore } from "@/store/userStore";
 
 function getToken(): string | null {
   if (typeof document === "undefined") return null;
@@ -24,10 +25,10 @@ interface UserInfo {
 
 export default function AccountPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, setUser, updateAvatar, updateNickname } = useUserStore();
+  const [loading, setLoading] = useState(!user);
   const [editingNickname, setEditingNickname] = useState(false);
-  const [nickname, setNickname] = useState("");
+  const [nickname, setNickname] = useState(user?.nickname || "");
   const [nicknameMsg, setNicknameMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
 
@@ -36,17 +37,19 @@ export default function AccountPage() {
   const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [pwLoading, setPwLoading] = useState(false);
 
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 获取用户信息
+  // 如果 store 里还没有用户信息则主动 fetch（刷新页面场景）
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      router.push("/login");
+    if (user) {
+      setNickname(user.nickname || "");
+      setAvatarPreview(user.avatar || null);
+      setLoading(false);
       return;
     }
-
+    const token = getToken();
+    if (!token) { router.push("/login"); return; }
     fetch("/api/user", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => {
@@ -60,7 +63,7 @@ export default function AccountPage() {
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, user, setUser]);
 
   // 保存昵称
   async function handleSaveNickname() {
@@ -91,7 +94,7 @@ export default function AccountPage() {
       if (data.success) {
         setNicknameMsg({ type: "ok", text: "昵称已更新" });
         setEditingNickname(false);
-        if (user) setUser({ ...user, nickname: nickname.trim() });
+        updateNickname(nickname.trim());
       } else {
         setNicknameMsg({ type: "err", text: data.error ?? "更新失败" });
       }
@@ -132,7 +135,7 @@ export default function AccountPage() {
 
     try {
       const token = getToken();
-      const res = await fetch("/api/user/avatar", {
+      const res = await fetch("/api/user/profile", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -141,7 +144,7 @@ export default function AccountPage() {
       const data = await res.json();
       if (data.success) {
         setAvatarPreview(data.url);
-        if (user) setUser({ ...user, avatar: data.url });
+        updateAvatar(data.url);
       } else {
         alert("上传失败: " + (data.error ?? "未知错误"));
         setAvatarPreview(user?.avatar || null);
