@@ -17,10 +17,14 @@ export const AI_AGENTS: AIAgent[] = [
     id: "kimi",
     name: "Kimi",
     baseURL: "https://api.moonshot.cn/v1",
-    model: "moonshot-v1-8k",
+    model: "kimi-k2.5",
     color: "#FF6B35",
     apiKeyEnv: "KIMI_API_KEY",
     avatar: "kimi.png",
+    extraBody: {
+      enable_thinking: false,
+      //tools: [{ type: "web_search" }],
+    },
   },
   {
     id: "qwen",
@@ -30,6 +34,9 @@ export const AI_AGENTS: AIAgent[] = [
     color: "#6B4FBB",
     apiKeyEnv: "QWEN_API_KEY",
     avatar: "qwen.png",
+    extraBody: {
+      enable_search: true,
+    },
   },
   {
     id: "doubao",

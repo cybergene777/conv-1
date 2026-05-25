@@ -8,6 +8,7 @@ export interface AIAgent {
   color: string;
   apiKeyEnv: string; // 对应的环境变量名
   avatar?: string;
+  extraBody?: Record<string, unknown>; // 新增，开放联网用
 }
 
 export type AgentId = "deepseek" | "kimi" | "qwen" | "doubao" | "glm";

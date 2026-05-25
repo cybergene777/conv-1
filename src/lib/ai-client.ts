@@ -42,15 +42,25 @@ export async function streamFromAgent(
       messages,
       stream: true,
       max_tokens: 2048,
-      temperature: 0.7,
+      temperature: agent.id === "kimi" ? 1 : 0.7,
+      // kimi-k2.5 默认开启思考模式，思考阶段 content 为 null 导致流式解析异常
+      // 对话场景关闭即可，如需思考能力请改用 kimi-k2-thinking 模型
+      ...agent.extraBody, 
     }),
     signal: controller.signal,
   });
 
   clearTimeout(timer);
 
+  // 临时调试：打印 kimi 响应状态
+  // if (agent.id === "kimi") {
+  //   console.log("[kimi status]", response.status, response.ok);
+  // }
+
   if (!response.ok) {
     const errText = await response.text();
+    // 临时调试：打印完整错误
+    // console.log(`[${agent.id} error body]`, errText);
     throw new Error(`${agent.id} API error ${response.status}: ${errText}`);
   }
 
@@ -77,6 +87,11 @@ export async function streamFromAgent(
 
         try {
           const json = JSON.parse(data);
+          // 临时调试：打印 kimi 返回的原始结构
+          // if (agent.id === "kimi") {
+          //  console.log("[kimi raw]", JSON.stringify(json.choices?.[0]?.delta));
+          // }
+
           const content = json.choices?.[0]?.delta?.content;
           if (content) {
             fullContent += content;
